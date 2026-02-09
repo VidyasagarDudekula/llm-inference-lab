@@ -4,7 +4,7 @@ from bench.timer import Timer
 from model.activations import SiLuCustome
 import torch.nn.functional as F
 
-m_custome = SiLuCustome()
+m_custome = SiLuCustome.apply
 
 def test_func_prod(inputs, targets):
     out = F.silu(inputs)
