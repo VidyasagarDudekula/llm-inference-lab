@@ -48,6 +48,20 @@ class MyLayerNorm(nn.Module):
 
     def forward(self, x):
         return LayerNormFunction.apply(x, self.gamma, self.beta, self.eps)
+
+
+class RMSNorm(nn.Module):
+    def __init__(self, dim, eps=1e-5):
+        super().__init__()
+        self.dim = dim
+        self.eps = eps
+        self.alpha = nn.Parameter(torch.ones((1, self.dim)))
+    
+    def forward(self, x):
+        var_values = torch.mean(x**2, dim=-1, keepdim=True)
+        norm_values = x / torch.sqrt(var_values + self.eps)
+        out = norm_values * self.alpha
+        return out
     
 
 if __name__ == '__main__':
