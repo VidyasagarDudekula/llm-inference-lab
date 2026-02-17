@@ -19,10 +19,16 @@ class SiLuCustome(torch.autograd.Function):
         x, sigmoid_values = ctx.saved_tensors
         df_dx = sigmoid_values + x * sigmoid_values * (1 - sigmoid_values)
         return df_dx * grad_output
+    
+
+def SiLU(logits: torch.Tensor):
+    m = SiLuCustome.apply
+    return m(logits)
+    
 
 
 if __name__ == '__main__':
-    m = SiLuCustome.apply
+    m = SiLU
     x = torch.randn((2, 10), requires_grad=True)
     out = m(x)
     y = torch.randn((2, 10), requires_grad=True)
@@ -30,3 +36,4 @@ if __name__ == '__main__':
     loss.backward()
     print(x)
     print(x.grad)
+    print(out)

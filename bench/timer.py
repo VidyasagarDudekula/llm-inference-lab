@@ -5,11 +5,6 @@ from bench.logger import log_metric
 
 class Timer:
     def __init__(self, warmup_steps=10, iter_steps=100):
-        """
-        Make sure you pass function to time as func=<actual function>
-        any arguments should be come as:-
-        arg_1, arg_2, arg_3, ... numbering should not be mess up.
-        """
         self.start_time = torch.cuda.Event(enable_timing=True)
         self.end_time = torch.cuda.Event(enable_timing=True)
         self.warmup_steps = max(warmup_steps, 0)
@@ -31,6 +26,19 @@ class Timer:
         torch.cuda.synchronize()
         self.end_time.synchronize()
         total_time = self.start_time.elapsed_time(self.end_time)/self.iter_steps
+        return total_time
+    
+    def start(self):
+        torch.cuda.synchronize()
+        self.start_time.record()
+    
+    def end(self):
+        self.end_time.record()
+        self.end_time.synchronize()
+        torch.cuda.synchronize()
+    
+    def elapsed_timer(self):
+        total_time = self.start_time.elapsed_time(self.end_time)
         return total_time
     
 

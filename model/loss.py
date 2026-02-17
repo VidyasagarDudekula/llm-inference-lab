@@ -8,7 +8,6 @@ def stabel_log_softmax(logits: torch.Tensor, targets: torch.Tensor | None = None
     keep_dim = True
     if targets is not None:
         keep_dim = False
-        print(logits.shape, targets.shape)
         target_logits = torch.gather(logits, dim=-1, index=targets.unsqueeze(-1)).squeeze(-1)
     out = target_logits - torch.logsumexp(logits, dim=dim, keepdim=keep_dim)
     return out
@@ -19,6 +18,16 @@ def cross_entropy_custome(logits: torch.Tensor, target_idx: torch.Tensor):
         logits = torch.gather(logits, dim=-1, index=target_idx.unsqueeze(-1)).squeeze(-1)
     total_sum = -(torch.sum(logits)/target_idx.shape[0])
     return total_sum
+
+class CrossEntropyLossCustome(nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, logits: torch.Tensor, target_ids: torch.Tensor):
+        if logits.shape != target_ids.shape:
+            logits = torch.gather(logits, dim=-1, index=target_ids.unsqueeze(-1)).squeeze(-1)
+        total_sum = -(torch.sum(logits)/target_ids.shape[0])
+        return total_sum
 
 
 if __name__ == '__main__':
