@@ -1,6 +1,8 @@
+from typing import DefaultDict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.optim as optim
 from collections import defaultdict
 import random
 
@@ -35,10 +37,8 @@ class SGDOptimizer():
         self.states = defaultdict(dict)
     
     def step(self):
-        print("New")
         with torch.no_grad():
             for param in self.model_parameters:
-                print("Updating Prameters")
                 if param.grad is None:
                     continue
                 state = self.states[param]
@@ -59,7 +59,82 @@ class SGDOptimizer():
                     continue
                 param.grad.zero_()
                 
-        
+
+class AdamOptimizer:
+    def __init__(self, model_parameters, lr=0.0001, M1 = 0.9, M2 = 0.9, bias = 0.9, eps = 1e-7):
+        self.M1 = M1
+        self.M2 = M2
+        self.lr = lr
+        self.bias = bias
+        self.model_parameters = list(model_parameters)
+        self.states = defaultdict(dict)
+        self.eps = eps
+    
+    def step(self):
+        with torch.no_grad():
+            for param in self.model_parameters:
+                state = self.states[param]
+                if len(state) == 0:
+                    state['step'] = 0
+                    state['moving_average_m1'] = torch.zeros_like(param.data)
+                    state['moving_average_m2'] = torch.zeros_like(param.data)
+                state['step'] += 1
+                state['moving_average_m1'] .mul_(self.M1).add_(param.grad, alpha=(1 - self.M1))
+                moment1 = state['moving_average_m1'] / (1-(self.bias**state['step']))
+
+                state['moving_average_m2'].mul_(self.M2).addcmul_(param.grad, param.grad, value=(1 - self.M2))
+                moment2 = state['moving_average_m2'] / (1-(self.bias**state['step']))
+
+                moment = moment1/(moment2**0.5 + self.eps)
+
+                param.sub_(moment, alpha=self.lr)
+    
+    def zero_grad(self):
+        with torch.no_grad():
+            for param in self.model_parameters:
+                if param.grad is None:
+                    continue
+                param.grad.zero_()
+
+
+class AdamWOptimizer:
+    def __init__(self, model_parameters, lr=0.0001, M1 = 0.9, M2 = 0.9, bias = 0.9, eps = 1e-7, weight_decay = 0.2):
+        self.M1 = M1
+        self.M2 = M2
+        self.lr = lr
+        self.bias = bias
+        self.model_parameters = list(model_parameters)
+        self.states = defaultdict(dict)
+        self.eps = eps
+        self.weight_decay = weight_decay
+    
+    def step(self):
+        with torch.no_grad():
+            for param in self.model_parameters:
+                if param.grad is None:
+                    continue
+                state = self.states[param]
+                if len(state) == 0:
+                    state['step'] = 0
+                    state['moving_average_m1'] = torch.zeros_like(param.data)
+                    state['moving_average_m2'] = torch.zeros_like(param.data)
+                state['step'] += 1
+                state['moving_average_m1'] .mul_(self.M1).add_(param.grad, alpha=(1 - self.M1))
+                moment1 = state['moving_average_m1'] / (1-(self.bias**state['step']))
+
+                state['moving_average_m2'].mul_(self.M2).addcmul_(param.grad, param.grad, value=(1 - self.M2))
+                moment2 = state['moving_average_m2'] / (1-(self.bias**state['step']))
+
+                moment = moment1/(moment2**0.5 + self.eps)
+                param.mul_(1 - self.lr * self.weight_decay)
+                param.sub_(moment, alpha=self.lr)
+    
+    def zero_grad(self):
+        with torch.no_grad():
+            for param in self.model_parameters:
+                if param.grad is None:
+                    continue
+                param.grad.zero_()
 
 
 
@@ -73,7 +148,7 @@ if __name__ == '__main__':
         nn.Linear(20, 30),
         nn.Linear(30, 10),
     ).to(device)
-    optimizer = SGDOptimizer(model.parameters())
+    optimizer = AdamWOptimizer(model.parameters())
     logits = torch.randn((5, 10), device=device, generator=gen, requires_grad=True)
     target_ids = torch.randint(0, 10, (5, 1), device=device, generator=gen)
     
