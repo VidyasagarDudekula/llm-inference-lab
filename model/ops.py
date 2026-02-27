@@ -1,3 +1,4 @@
+from numpy import dtype
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -5,6 +6,26 @@ import torch.nn.functional as F
 
 def sigmoid(x):
     return 1 / (1+ torch.exp(-x))
+
+
+def clip_grad_norm_(model_parameters, max_norm=1.0, eps=0.0001):
+    with torch.no_grad():
+        mp = list(model_parameters)
+        if len(mp)==0:
+            return
+        val = torch.tensor(0.0, device=mp[0].device)
+        for param in mp:
+            if param.grad is None:
+                continue
+            val.add_(torch.linalg.vector_norm(param.grad, ord=2, dtype=torch.float32).square())
+        val.sqrt_()
+        if val<max_norm:
+            return
+        scale = max_norm/(val + eps)
+        for param in mp:
+            if param.grad is None:
+                continue
+            param.grad.mul_(scale)
 
 
 class SiLuCustom(torch.autograd.Function):

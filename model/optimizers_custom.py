@@ -98,11 +98,12 @@ class AdamOptimizer:
 
 
 class AdamWOptimizer:
-    def __init__(self, model_parameters, lr=0.0001, M1 = 0.9, M2 = 0.9, bias = 0.9, eps = 1e-7, weight_decay = 0.2):
+    def __init__(self, model_parameters, lr=0.0001, M1 = 0.9, M2 = 0.9, bias1 = 0.9, bias2 = 0.999, eps = 1e-7, weight_decay = 0.2):
         self.M1 = M1
         self.M2 = M2
         self.lr = lr
-        self.bias = bias
+        self.bias1 = bias1
+        self.bias2 = bias2
         self.model_parameters = list(model_parameters)
         self.states = defaultdict(dict)
         self.eps = eps
@@ -120,10 +121,10 @@ class AdamWOptimizer:
                     state['moving_average_m2'] = torch.zeros_like(param.data)
                 state['step'] += 1
                 state['moving_average_m1'] .mul_(self.M1).add_(param.grad, alpha=(1 - self.M1))
-                moment1 = state['moving_average_m1'] / (1-(self.bias**state['step']))
+                moment1 = state['moving_average_m1'] / (1-(self.bias1**state['step']))
 
                 state['moving_average_m2'].mul_(self.M2).addcmul_(param.grad, param.grad, value=(1 - self.M2))
-                moment2 = state['moving_average_m2'] / (1-(self.bias**state['step']))
+                moment2 = state['moving_average_m2'] / (1-(self.bias2**state['step']))
 
                 moment = moment1/(moment2**0.5 + self.eps)
                 param.mul_(1 - self.lr * self.weight_decay)
@@ -140,7 +141,7 @@ class AdamWOptimizer:
 
 if __name__ == '__main__':
     from config import device
-    from model.ops import CrossEntropyLossCustom, stable_softmax
+    from model.ops import CrossEntropyLossCustom, stable_softmax, clip_grad_norm_
     gen = torch.Generator(device)
     gen.manual_seed(42)
     model = nn.Sequential(
@@ -148,6 +149,7 @@ if __name__ == '__main__':
         nn.Linear(20, 30),
         nn.Linear(30, 10),
     ).to(device)
+    clip_grad_norm_(model.parameters())
     optimizer = AdamWOptimizer(model.parameters())
     logits = torch.randn((5, 10), device=device, generator=gen, requires_grad=True)
     target_ids = torch.randint(0, 10, (5, 1), device=device, generator=gen)
