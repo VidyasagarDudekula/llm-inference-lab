@@ -5,6 +5,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from collections import defaultdict
 import random
+import math
 
 
 
@@ -119,16 +120,20 @@ class AdamWOptimizer:
                     state['step'] = 0
                     state['moving_average_m1'] = torch.zeros_like(param.data)
                     state['moving_average_m2'] = torch.zeros_like(param.data)
+                    state['buffer'] = torch.zeros_like(param.data)
                 state['step'] += 1
-                state['moving_average_m1'] .mul_(self.M1).add_(param.grad, alpha=(1 - self.M1))
-                moment1 = state['moving_average_m1'] / (1-(self.bias1**state['step']))
+                bias2 = math.sqrt(1-(self.bias2 ** state['step']))
+                bias1 = 1-(self.bias1 ** state['step'])
+                step_size = (bias2 * self.lr)/bias1
+                scaled_eps = self.eps * bias2
+                state['moving_average_m1'].mul_(self.M1).add_(param.grad, alpha=(1 - self.M1))
 
                 state['moving_average_m2'].mul_(self.M2).addcmul_(param.grad, param.grad, value=(1 - self.M2))
-                moment2 = state['moving_average_m2'] / (1-(self.bias2**state['step']))
-
-                moment = moment1/(moment2**0.5 + self.eps)
-                param.mul_(1 - self.lr * self.weight_decay)
-                param.sub_(moment, alpha=self.lr)
+                state['buffer'].copy_(state['moving_average_m2'])
+                state['buffer'].sqrt_()
+                state['buffer'].add_(scaled_eps)
+                param.mul_(1-(self.lr*self.weight_decay))
+                param.addcdiv_(state['moving_average_m1'], state['buffer'], value=-step_size)
     
     def zero_grad(self):
         with torch.no_grad():
